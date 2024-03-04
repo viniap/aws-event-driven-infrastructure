@@ -7,3 +7,8 @@ variable "sns_topic_name" {
   type        = string
   default     = "PluggyWebhookEventsTopic"
 }
+
+variable "api_name" {
+  type        = string
+  default     = "PluggyWebhookAPI"
+}
