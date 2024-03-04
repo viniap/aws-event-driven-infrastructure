@@ -168,3 +168,60 @@ resource "aws_api_gateway_usage_plan_key" "api_usage_plan_key" {
   key_type      = "API_KEY"
   usage_plan_id = aws_api_gateway_usage_plan.api_usage_plan.id
 }
+
+resource "aws_sqs_queue" "queue" {
+  name                    = var.sqs_queue_name
+  sqs_managed_sse_enabled = true
+}
+
+resource "aws_sns_topic_subscription" "topic_subscription" {
+  topic_arn = aws_sns_topic.topic.arn
+  protocol  = "sqs"
+  endpoint  = aws_sqs_queue.queue.arn
+  filter_policy_scope = "MessageBody"
+
+  filter_policy = jsonencode(
+    {
+      event = [
+        "item/created",
+        "item/updated",
+        "item/deleted",
+        "transactions/deleted",
+      ]
+    }
+  )
+}
+
+data "aws_caller_identity" "current" {}
+
+resource "aws_sqs_queue_policy" "queue_policy" {
+  queue_url = aws_sqs_queue.queue.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "__owner_statement"
+        Effect = "Allow"
+        Principal = {
+          AWS = data.aws_caller_identity.current.arn
+        }
+        Action = "SQS:*"
+        Resource = aws_sqs_queue.queue.arn
+      },
+      {
+        Sid       = aws_sns_topic_subscription.topic_subscription.id
+        Effect    = "Allow"
+        Principal = {
+          AWS = "*"
+        }
+        Action    = "SQS:SendMessage"
+        Resource  = aws_sqs_queue.queue.arn
+        Condition = {
+          ArnLike = {
+            "aws:SourceArn" = aws_sns_topic.topic.arn
+          }
+        }
+      },
+    ]
+  })
+}
