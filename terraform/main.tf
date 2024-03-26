@@ -1,5 +1,5 @@
 resource "aws_sns_topic" "topic" {
-  name = var.sns_topic_name
+  name              = var.sns_topic_name
   kms_master_key_id = "alias/aws/sns"
 }
 
@@ -22,7 +22,7 @@ resource "aws_iam_policy" "publish_topic_policy" {
 }
 
 resource "aws_iam_role" "api_gateway_sns_proxy_role" {
-  name = "APIGatewaySNSProxyRoleTest"
+  name        = "APIGatewaySNSProxyRoleTest"
   description = "Allows API Gateway to interact with SNS topics."
 
   assume_role_policy = jsonencode({
@@ -46,7 +46,7 @@ resource "aws_iam_role_policy_attachment" "attach_publish_topic_policy" {
 }
 
 resource "aws_api_gateway_rest_api" "pluggy_webhook_rest_api" {
-  name = var.api_name
+  name        = var.api_name
   description = "API to receive the events from the Pluggy Webhook."
 
   endpoint_configuration {
@@ -61,25 +61,25 @@ resource "aws_api_gateway_resource" "pluggy_webhook_resource" {
 }
 
 resource "aws_api_gateway_method" "pluggy_webhook_method" {
-  authorization = "NONE"
-  http_method   = "POST"
-  resource_id   = aws_api_gateway_resource.pluggy_webhook_resource.id
-  rest_api_id   = aws_api_gateway_rest_api.pluggy_webhook_rest_api.id
+  authorization    = "NONE"
+  http_method      = "POST"
+  resource_id      = aws_api_gateway_resource.pluggy_webhook_resource.id
+  rest_api_id      = aws_api_gateway_rest_api.pluggy_webhook_rest_api.id
   api_key_required = true
-  operation_name = "PostEvents"
+  operation_name   = "PostEvents"
 }
 
 resource "aws_api_gateway_integration" "api_gateway_sns_integration" {
-  http_method = aws_api_gateway_method.pluggy_webhook_method.http_method
-  resource_id = aws_api_gateway_resource.pluggy_webhook_resource.id
-  rest_api_id = aws_api_gateway_rest_api.pluggy_webhook_rest_api.id
+  http_method             = aws_api_gateway_method.pluggy_webhook_method.http_method
+  resource_id             = aws_api_gateway_resource.pluggy_webhook_resource.id
+  rest_api_id             = aws_api_gateway_rest_api.pluggy_webhook_rest_api.id
   integration_http_method = "POST"
-  type        = "AWS"
-  uri = "arn:aws:apigateway:${var.region}:sns:path//"
-  credentials = aws_iam_role.api_gateway_sns_proxy_role.arn
-  passthrough_behavior = "WHEN_NO_TEMPLATES"
+  type                    = "AWS"
+  uri                     = "arn:aws:apigateway:${var.region}:sns:path//"
+  credentials             = aws_iam_role.api_gateway_sns_proxy_role.arn
+  passthrough_behavior    = "WHEN_NO_TEMPLATES"
 
-  request_parameters = { 
+  request_parameters = {
     "integration.request.header.Content-Type" = "'application/x-www-form-urlencoded'"
   }
 
@@ -135,16 +135,16 @@ resource "aws_api_gateway_stage" "api_stage" {
   deployment_id = aws_api_gateway_deployment.pluggy_webhook_deployment.id
   rest_api_id   = aws_api_gateway_rest_api.pluggy_webhook_rest_api.id
   stage_name    = "dev"
-  description = "Development Stage."
+  description   = "Development Stage."
 }
 
 resource "aws_api_gateway_api_key" "api_key" {
-  name = "APIKey"
+  name        = "APIKey"
   description = "API Key for ${var.api_name}."
 }
 
 resource "aws_api_gateway_usage_plan" "api_usage_plan" {
-  name = "UsagePlan"
+  name        = "UsagePlan"
   description = "Usage plan for ${var.api_name}."
 
   api_stages {
@@ -175,9 +175,9 @@ resource "aws_sqs_queue" "queue" {
 }
 
 resource "aws_sns_topic_subscription" "topic_subscription" {
-  topic_arn = aws_sns_topic.topic.arn
-  protocol  = "sqs"
-  endpoint  = aws_sqs_queue.queue.arn
+  topic_arn           = aws_sns_topic.topic.arn
+  protocol            = "sqs"
+  endpoint            = aws_sqs_queue.queue.arn
   filter_policy_scope = "MessageBody"
 
   filter_policy = jsonencode(
@@ -205,17 +205,17 @@ resource "aws_sqs_queue_policy" "queue_policy" {
         Principal = {
           AWS = data.aws_caller_identity.current.arn
         }
-        Action = "SQS:*"
+        Action   = "SQS:*"
         Resource = aws_sqs_queue.queue.arn
       },
       {
-        Sid       = aws_sns_topic_subscription.topic_subscription.id
-        Effect    = "Allow"
+        Sid    = aws_sns_topic_subscription.topic_subscription.id
+        Effect = "Allow"
         Principal = {
           AWS = "*"
         }
-        Action    = "SQS:SendMessage"
-        Resource  = aws_sqs_queue.queue.arn
+        Action   = "SQS:SendMessage"
+        Resource = aws_sqs_queue.queue.arn
         Condition = {
           ArnLike = {
             "aws:SourceArn" = aws_sns_topic.topic.arn
